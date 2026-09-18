@@ -432,10 +432,20 @@ window.addEventListener('DOMContentLoaded', async () => {
     uiCallbacks.updateProgressionUI(progression);
   });
 
-  // Animation Loop
+  // Register Service Worker for Offline PWA / Android APK execution
+  if ('serviceWorker' in navigator && (window.location.protocol === 'https:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+    navigator.serviceWorker.register('./sw.js').then((reg) => {
+      console.log('Rally Service Worker registered', reg.scope);
+    }).catch((err) => {
+      console.warn('Service worker registration failed:', err);
+    });
+  }
+
+  // Animation Loop with robust dt clamp for background pauses & app resumes
   let lastTime = performance.now();
   function loop(currentTime) {
     requestAnimationFrame(loop);
+    // Hard cap dt to 0.05 (20fps min) to prevent huge physics jumps on app resume
     const dt = Math.min((currentTime - lastTime) / 1000, 0.05);
     lastTime = currentTime;
 

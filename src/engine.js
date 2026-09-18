@@ -169,45 +169,55 @@ export class GameEngine {
       this.inputMode = 'mouse';
     });
 
-    // Touch controls
-    this.canvas.addEventListener('touchstart', (e) => {
+    // Touch & Pointer controls (Android WebView & Mobile First)
+    this.canvas.addEventListener('pointerdown', (e) => {
       this.sound.init();
       this.sound.resume();
-      if (e.touches.length > 0) {
-        this.inputMode = 'touch';
-        const touch = e.touches[0];
-        this.touchStartX = touch.clientX;
-        this.paddleStartX = this.playerTargetX;
+      this.inputMode = 'touch';
+      const rect = this.canvas.getBoundingClientRect();
+      this.touchStartX = e.clientX;
+      this.paddleStartX = this.playerTargetX;
 
-        if (this.state === 'PLAYING' && this.serving && this.server === 'PLAYER') {
-          this.serveBall('PLAYER');
-        } else if (this.state === 'PLAYING') {
-          this.powerCharging = true;
-        }
+      if (this.state === 'PLAYING' && this.serving && this.server === 'PLAYER') {
+        this.serveBall('PLAYER');
+      } else if (this.state === 'PLAYING') {
+        this.powerCharging = true;
       }
-    }, { passive: false });
+    });
 
-    this.canvas.addEventListener('touchmove', (e) => {
-      if (e.touches.length > 0) {
-        e.preventDefault();
-        const touch = e.touches[0];
+    this.canvas.addEventListener('pointermove', (e) => {
+      if (e.buttons > 0 || e.pointerType === 'touch') {
         const rect = this.canvas.getBoundingClientRect();
-        const deltaX = (touch.clientX - this.touchStartX) / (rect.width * 0.45);
+        const deltaX = (e.clientX - this.touchStartX) / (rect.width * 0.45);
         this.playerTargetX = THREE.MathUtils.clamp(
           this.paddleStartX + deltaX * (this.tableHalfW + 0.4),
           -this.tableHalfW - 0.5,
           this.tableHalfW + 0.5
         );
       }
-    }, { passive: false });
+    });
 
-    const onTouchEnd = () => {
+    const onPointerUp = () => {
       this.powerCharging = false;
     };
-    this.canvas.addEventListener('touchend', onTouchEnd);
-    this.canvas.addEventListener('touchcancel', onTouchEnd);
+    this.canvas.addEventListener('pointerup', onPointerUp);
+    this.canvas.addEventListener('pointercancel', onPointerUp);
+
+    // Visibility change / App Pause / Resume for Android WebView lifecycle
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        if (this.state === 'PLAYING') {
+          this.togglePause();
+        }
+      } else {
+        this.sound.resume();
+      }
+    });
 
     window.addEventListener('resize', () => this.onResize());
+    window.addEventListener('orientationchange', () => {
+      setTimeout(() => this.onResize(), 150);
+    });
   }
 
   onResize() {
