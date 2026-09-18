@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>RALLY — 3D Grass Table Tennis</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='45' fill='%2310b981'/><circle cx='50' cy='50' r='20' fill='%23ffffff'/></svg>" />
+  </head>
+  <body>
+    <!-- 3D Canvas Mount Point -->
+    <div id="canvas-container"></div>
+
+    <!-- UI Overlays -->
+    <div id="ui-root">
+      <!-- 1. LANDING SCREEN -->
+      <div id="landingScreen" class="screen active">
+        <div class="brand-wrapper">
+          <div class="brand-badge">Outdoor 3D Table Tennis</div>
+          <h1 class="title">RALLY</h1>
+          <p class="tagline">ONE TABLE. ONE RALLY AT A TIME.</p>
+        </div>
+
+        <div class="landing-card">
+          <!-- Difficulty Selector -->
+          <div class="difficulty-container">
+            <button class="diff-btn" data-diff="chill">CHILL</button>
+            <button class="diff-btn active" data-diff="club">CLUB</button>
+            <button class="diff-btn" data-diff="pro">PRO</button>
+          </div>
+
+          <button id="startBtn" class="btn-primary">START MATCH</button>
+
+          <div class="footer-controls">
+            <button id="tutorialBtn" class="btn-secondary">HOW TO PLAY</button>
+            <button id="audioToggleBtn" class="btn-secondary">🔊 SOUND ON</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. IN-GAME HUD -->
+      <div id="hudScreen" class="screen">
+        <div class="top-bar">
+          <div class="score-board">
+            <div class="score-item player">
+              <span class="score-name">YOU</span>
+              <span id="playerScore" class="score-val">0</span>
+            </div>
+            <div class="score-divider">:</div>
+            <div class="score-item cpu">
+              <span class="score-name">CPU</span>
+              <span id="cpuScore" class="score-val">0</span>
+            </div>
+          </div>
+
+          <button id="pauseBtn" class="btn-icon">⏸ PAUSE</button>
+        </div>
+
+        <div class="rally-container">
+          <div class="rally-pill">RALLY <span id="rallyCount">0</span></div>
+          <div class="rally-pill">BEST <span id="personalBest">0</span></div>
+        </div>
+
+        <!-- Overlays -->
+        <div id="celebrationBadge" class="celebration-badge">⭐ NEW RALLY BEST!</div>
+        <div id="bannerOverlay" class="banner-overlay">POINT — YOU</div>
+        <div id="countdownOverlay" class="countdown-overlay">3</div>
+
+        <div class="bottom-bar">
+          <div id="instructionToast" class="instruction-toast">TAP OR PRESS SPACE TO SERVE</div>
+          <div class="power-meter-wrapper">
+            <span id="powerLabel" class="power-label">POWER CHARGE</span>
+            <div class="power-bar-bg">
+              <div id="powerBarFill" class="power-bar-fill"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. HOW TO PLAY / ONBOARDING MODAL -->
+      <div id="onboardingModal" class="modal-backdrop">
+        <div class="modal-card">
+          <h2 class="modal-title">HOW TO PLAY</h2>
+          
+          <div class="tutorial-step">
+            <span class="step-label">1. MOVE</span>
+            <p class="step-desc">Slide mouse, swipe screen, or use A / D / Arrow Keys to position your paddle.</p>
+          </div>
+
+          <div class="tutorial-step">
+            <span class="step-label">2. RETURN</span>
+            <p class="step-desc">Your 3D hand assisted-swings when the ball touches the paddle. Keep eye on the ball!</p>
+          </div>
+
+          <div class="tutorial-step">
+            <span class="step-label">3. POWER SHOT</span>
+            <p class="step-desc">Hold Space on keyboard or touch-and-hold on mobile to charge a lightning power smash.</p>
+          </div>
+
+          <div class="tutorial-step">
+            <span class="step-label">4. TOURNAMENT RULES</span>
+            <p class="step-desc">First to 11 points (win by 2). Keep the rally going to set new personal bests!</p>
+          </div>
+
+          <button id="closeTutorialBtn" class="btn-primary">GOT IT — PLAY</button>
+        </div>
+      </div>
+
+      <!-- 4. PAUSE MODAL -->
+      <div id="pauseModal" class="modal-backdrop">
+        <div class="modal-card">
+          <h2 class="modal-title">GAME PAUSED</h2>
+          <button id="resumeBtn" class="btn-primary">RESUME</button>
+          <button id="restartBtn" class="btn-secondary">RESTART MATCH</button>
+          <button id="pauseAudioToggle" class="btn-secondary">🔊 SOUND ON</button>
+          <button id="quitBtn" class="btn-secondary">QUIT TO MENU</button>
+        </div>
+      </div>
+
+      <!-- 5. MATCH COMPLETE MODAL -->
+      <div id="matchEndModal" class="modal-backdrop">
+        <div class="modal-card">
+          <h2 id="endResultTitle" class="modal-title">YOU WIN!</h2>
+          
+          <div class="stats-grid">
+            <div class="stat-box">
+              <span class="stat-title">FINAL SCORE</span>
+              <span id="endScoreText" class="stat-value">11 — 9</span>
+            </div>
+            <div class="stat-box">
+              <span class="stat-title">MATCH LONGEST</span>
+              <span id="endLongestRally" class="stat-value">14</span>
+            </div>
+            <div class="stat-box" style="grid-column: span 2;">
+              <span class="stat-title">PERSONAL BEST RALLY</span>
+              <span id="endBestRally" class="stat-value">22</span>
+            </div>
+          </div>
+
+          <button id="playAgainBtn" class="btn-primary">PLAY AGAIN</button>
+          <button id="menuFromEndBtn" class="btn-secondary">MAIN MENU</button>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

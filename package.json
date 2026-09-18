@@ -1,0 +1,31 @@
+{
+  "name": "table-tennis",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Biggweb3/Table-tennis.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Biggweb3/Table-tennis/issues"
+  },
+  "homepage": "https://github.com/Biggweb3/Table-tennis#readme",
+  "dependencies": {
+    "canvas-confetti": "^1.9.4",
+    "three": "^0.186.0",
+    "vite": "^8.3.0"
+  },
+  "devDependencies": {
+    "@types/three": "^0.186.0"
+  }
+}
