@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#0f172a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>RALLY — 3D Grass Table Tennis</title>
+  <link rel="manifest" href="./manifest.json">
+  <link rel="stylesheet" href="./style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div id="app">
+    <!-- WebGL Canvas -->
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- Top Floating Scoreboard & Level Progress -->
+    <header id="scoreboard" class="floating-panel">
+      <!-- Player Level & Match Wins -->
+      <div class="level-indicator-box">
+        <div class="level-text">LVL <span id="hudLevelNum">1</span></div>
+        <div class="level-wins-dots" title="Wins to unlock next level (3 required)">
+          <span class="win-dot" id="dot1"></span>
+          <span class="win-dot" id="dot2"></span>
+          <span class="win-dot" id="dot3"></span>
+        </div>
+      </div>
+
+      <div class="score-team player-team">
+        <span class="team-label">YOU</span>
+        <span id="playerScore" class="score-number">0</span>
+      </div>
+
+      <div class="scoreboard-center">
+        <div class="rally-counter">
+          <span class="rally-title">RALLY</span>
+          <span id="rallyCount" class="rally-num">0</span>
+        </div>
+        <div class="pb-counter">
+          <span class="pb-title">BEST</span>
+          <span id="pbCount" class="pb-num">0</span>
+        </div>
+      </div>
+
+      <div class="score-team cpu-team">
+        <span class="team-label">CPU</span>
+        <span id="cpuScore" class="score-number">0</span>
+      </div>
+
+      <!-- Weather HUD Capsule -->
+      <div id="weatherPill" class="weather-pill" title="Live Global Weather">
+        <span id="weatherIcon" class="weather-icon">☀</span>
+        <span id="weatherName" class="weather-name">SUNNY</span>
+      </div>
+
+      <!-- Quick Actions -->
+      <div class="top-actions">
+        <button id="btnSoundToggle" class="icon-btn" aria-label="Toggle Sound" title="Sound Mute/Unmute">
+          <svg id="iconSoundOn" viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+            <path d="M14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77zm-2.5-1.23L6.5 6.5H3a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h3.5l5 4.5a1 1 0 0 0 1.5-.8V2.8a1 1 0 0 0-1.5-.8zm5 10c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/>
+          </svg>
+          <svg id="iconSoundOff" class="hidden" viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+            <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27l4.73 4.73H3v6h4l5 5V13.8l4.47 4.47c-.73.56-1.55 1-2.47 1.27v2.05c1.47-.36 2.78-1.07 3.86-2.02l2.37 2.37L21.46 20.73 4.27 3zM12 4L9.91 6.09 12 8.18V4z"/>
+          </svg>
+        </button>
+        <button id="btnPause" class="icon-btn" aria-label="Pause Menu" title="Menu (P / Esc)">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+            <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Contextual In-Game Prompt (Serve / Help) -->
+    <div id="servePrompt" class="context-banner hidden">
+      <span class="pulse-dot"></span>
+      <span id="servePromptText">YOUR SERVE — TAP / SPACE</span>
+    </div>
+
+    <!-- Power Charge Meter -->
+    <div id="powerMeterContainer" class="power-container">
+      <div class="power-bar-wrapper">
+        <div id="powerBarFill" class="power-bar-fill"></div>
+      </div>
+      <span id="powerReadyBadge" class="power-badge hidden">⚡ POWER READY</span>
+    </div>
+
+    <!-- Weather Status Brief Toast -->
+    <div id="weatherToast" class="weather-toast hidden">
+      <span id="weatherToastText">Clear skies. Conditions are calm.</span>
+    </div>
+
+    <!-- Point result & celebration banner -->
+    <div id="pointBanner" class="point-banner hidden">
+      <span id="pointBannerText">POINT — YOU</span>
+    </div>
+
+    <div id="celebrationBanner" class="celebration-banner hidden">
+      <span id="celebrationBannerText">NEW RALLY BEST!</span>
+    </div>
+
+    <!-- Big Center Countdown -->
+    <div id="countdownOverlay" class="center-overlay hidden">
+      <div id="countdownNum" class="countdown-text">3</div>
+    </div>
+
+    <!-- LANDING SCREEN -->
+    <div id="landingScreen" class="modal-backdrop">
+      <div class="landing-card glass-panel">
+        <div class="game-badge">OUTDOOR GRASS EDITION &bull; V2</div>
+        <h1 class="game-title">RALLY</h1>
+        <p class="game-tagline">ONE TABLE. ONE RALLY AT A TIME.</p>
+
+        <!-- Player Level Badge on Landing -->
+        <div class="landing-level-pill">
+          <div class="lvl-col">
+            <span class="lvl-lbl">CURRENT LEVEL</span>
+            <span class="lvl-val" id="landingCurrentLevel">1 / 100</span>
+          </div>
+          <div class="lvl-div"></div>
+          <div class="lvl-col">
+            <span class="lvl-lbl">NEXT CHECKPOINT</span>
+            <span class="lvl-val" id="landingNextCp">LEVEL 20</span>
+          </div>
+        </div>
+
+        <div class="feature-capsule">
+          <span class="capsule-icon">🤝</span>
+          <span class="capsule-text">5-Finger Grip Hand &bull; Dense Meadow Wind &bull; Live Weather</span>
+        </div>
+
+        <div class="controls-hint">
+          <span><strong>Desktop:</strong> Mouse / A & D to move &bull; Space for Power & Serve</span>
+          <span><strong>Mobile:</strong> Drag to move &bull; Tap / Hold for Power & Serve</span>
+        </div>
+
+        <div class="action-row">
+          <button id="btnStartGame" class="btn-primary">PLAY MATCH</button>
+          <button id="btnShowHowTo" class="btn-secondary">HOW TO PLAY</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MULTI-PAGE ONBOARDING MODAL -->
+    <div id="onboardingScreen" class="modal-backdrop hidden">
+      <div class="modal-card glass-panel onboarding-modal">
+        <div class="onboarding-progress-bar">
+          <div id="onboardingProgressFill" class="onboarding-progress-fill"></div>
+        </div>
+
+        <div class="onboarding-page-content" id="onboardingPageContainer">
+          <!-- Page 1: Welcome -->
+          <div class="onboarding-page" data-page="1">
+            <div class="page-badge">STEP 1 OF 7</div>
+            <h2 class="modal-title">WELCOME TO RALLY</h2>
+            <div class="onboarding-hero-icon">🏆</div>
+            <p class="page-body">Keep the rally alive, outplay the computer, and climb through a 100-level tournament on a living grass field.</p>
+          </div>
+
+          <!-- Page 2: Desktop Controls -->
+          <div class="onboarding-page hidden" data-page="2">
+            <div class="page-badge">STEP 2 OF 7</div>
+            <h2 class="modal-title">DESKTOP CONTROLS</h2>
+            <div class="control-grid">
+              <div class="control-item">
+                <span class="key-badge">MOUSE</span>
+                <span class="ctrl-desc">Slide to position your paddle</span>
+              </div>
+              <div class="control-item">
+                <span class="key-badge">A / D &bull; ARROWS</span>
+                <span class="ctrl-desc">Move paddle left & right</span>
+              </div>
+              <div class="control-item">
+                <span class="key-badge">SPACE</span>
+                <span class="ctrl-desc">Tap to serve / Hold to charge Power Shot</span>
+              </div>
+              <div class="control-item">
+                <span class="key-badge">P / ESC</span>
+                <span class="ctrl-desc">Pause match & open settings</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Page 3: Mobile Controls -->
+          <div class="onboarding-page hidden" data-page="3">
+            <div class="page-badge">STEP 3 OF 7</div>
+            <h2 class="modal-title">MOBILE CONTROLS</h2>
+            <div class="control-grid">
+              <div class="control-item">
+                <span class="key-badge">TOUCH DRAG</span>
+                <span class="ctrl-desc">Slide finger horizontally to move</span>
+              </div>
+              <div class="control-item">
+                <span class="key-badge">TAP</span>
+                <span class="ctrl-desc">Tap to launch serve</span>
+              </div>
+              <div class="control-item">
+                <span class="key-badge">HOLD</span>
+                <span class="ctrl-desc">Press & hold to charge Power Shot</span>
+              </div>
+              <div class="control-item">
+                <span class="key-badge">PAUSE BTN</span>
+                <span class="ctrl-desc">Tap top-right icon to pause</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Page 4: How To Play -->
+          <div class="onboarding-page hidden" data-page="4">
+            <div class="page-badge">STEP 4 OF 7</div>
+            <h2 class="modal-title">GAME RULES</h2>
+            <p class="page-body">The ball travels between you and the CPU. Move your paddle horizontally into position—your swing height is assisted. First to 11 points (win by 2) wins the match.</p>
+          </div>
+
+          <!-- Page 5: 100-Level Progression -->
+          <div class="onboarding-page hidden" data-page="5">
+            <div class="page-badge">STEP 5 OF 7</div>
+            <h2 class="modal-title">100-LEVEL PROGRESSION</h2>
+            <p class="page-body">Win <strong>3 matches</strong> to conquer each level. Difficulty scales smoothly: CPU reaction, speed, and shot placement intensify as you advance.</p>
+            <div class="checkpoint-banner">
+              <strong>Checkpoints:</strong> Levels 20, 40, 60, 80 & 100. If you fail at a major checkpoint, you fall back 5 levels to regroup!
+            </div>
+          </div>
+
+          <!-- Page 6: Dynamic Weather -->
+          <div class="onboarding-page hidden" data-page="6">
+            <div class="page-badge">STEP 6 OF 7</div>
+            <h2 class="modal-title">LIVING WEATHER</h2>
+            <div class="weather-preview-row">
+              <span class="w-chip">☀ SUNNY</span>
+              <span class="w-chip">💨 WINDY</span>
+              <span class="w-chip">🌧 RAIN</span>
+              <span class="w-chip">❄ SNOW</span>
+            </div>
+            <p class="page-body">World conditions evolve naturally every 10 minutes. Wind sways the grass, rain slicks the turf, and snow blankets the lawn. Weather is purely atmospheric—<strong>ball physics remain 100% fair and consistent</strong> at all times!</p>
+          </div>
+
+          <!-- Page 7: Ready to Play -->
+          <div class="onboarding-page hidden" data-page="7">
+            <div class="page-badge">STEP 7 OF 7</div>
+            <h2 class="modal-title">READY TO RALLY?</h2>
+            <p class="page-body">Your stylized hand is locked onto the paddle. Step onto the grass and start your journey to Level 100!</p>
+          </div>
+        </div>
+
+        <!-- Navigation Buttons -->
+        <div class="onboarding-nav">
+          <button id="btnOnboardingBack" class="btn-secondary" disabled>BACK</button>
+          <button id="btnOnboardingSkip" class="btn-text">SKIP</button>
+          <button id="btnOnboardingNext" class="btn-primary">NEXT</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAUSE & SETTINGS MENU -->
+    <div id="pauseScreen" class="modal-backdrop hidden">
+      <div class="modal-card glass-panel mini">
+        <h2 class="modal-title">MATCH PAUSED</h2>
+
+        <!-- Tab switches: Menu / Stats / Settings -->
+        <div class="menu-tabs">
+          <button class="tab-btn active" data-tab="menu">MENU</button>
+          <button class="tab-btn" data-tab="stats">STATS</button>
+          <button class="tab-btn" data-tab="settings">SETTINGS</button>
+        </div>
+
+        <div id="tabContentMenu" class="tab-content">
+          <div class="menu-btn-column">
+            <button id="btnResume" class="btn-primary">RESUME</button>
+            <button id="btnRestart" class="btn-secondary">RESTART MATCH</button>
+            <button id="btnShowHelpFromPause" class="btn-secondary">HOW TO PLAY</button>
+            <button id="btnQuitToMenu" class="btn-danger">QUIT TO MENU</button>
+          </div>
+        </div>
+
+        <div id="tabContentStats" class="tab-content hidden">
+          <div class="stats-panel-content">
+            <div class="stat-line"><span>Current Level:</span> <strong id="statCurrentLvl">1</strong></div>
+            <div class="stat-line"><span>Highest Level:</span> <strong id="statHighestLvl">1</strong></div>
+            <div class="stat-line"><span>Checkpoint:</span> <strong id="statCheckpoint">1</strong></div>
+            <div class="stat-line"><span>Level Wins:</span> <strong id="statLvlWins">0 / 3</strong></div>
+            <div class="stat-line"><span>Total Wins:</span> <strong id="statTotalWins">0</strong></div>
+            <div class="stat-line"><span>Total Losses:</span> <strong id="statTotalLosses">0</strong></div>
+            <div class="stat-line"><span>Personal Best Rally:</span> <strong id="statBestRally">0</strong></div>
+            <div class="stat-line"><span>Matches Played:</span> <strong id="statMatchesPlayed">0</strong></div>
+          </div>
+        </div>
+
+        <div id="tabContentSettings" class="tab-content hidden">
+          <div class="settings-panel-content">
+            <div class="setting-row">
+              <span class="setting-label">Graphics Quality</span>
+              <div class="diff-btn-group mini" id="graphicsQualityPicker">
+                <button class="quality-btn" data-quality="LOW">LOW</button>
+                <button class="quality-btn" data-quality="MEDIUM">MED</button>
+                <button class="quality-btn active" data-quality="HIGH">HIGH</button>
+                <button class="quality-btn" data-quality="ULTRA">ULTRA</button>
+              </div>
+            </div>
+
+            <div class="setting-row">
+              <span class="setting-label">Sound Audio</span>
+              <button id="btnToggleSoundSetting" class="btn-secondary mini-btn">SOUND: ON</button>
+            </div>
+
+            <div class="setting-row danger-zone">
+              <span class="setting-label">Reset Progression</span>
+              <button id="btnPromptReset" class="btn-danger mini-btn">RESET ALL PROGRESS</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RESET PROGRESS CONFIRMATION MODAL -->
+    <div id="resetConfirmModal" class="modal-backdrop hidden">
+      <div class="modal-card glass-panel mini confirm-card">
+        <h2 class="modal-title danger-text">RESET ALL PROGRESS?</h2>
+        <p class="modal-desc">This will erase your current level, statistics, and checkpoints. You will return to Level 1.</p>
+        <div class="action-row">
+          <button id="btnCancelReset" class="btn-secondary">CANCEL</button>
+          <button id="btnConfirmReset" class="btn-danger">CONFIRM RESET</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MATCH END SCREEN -->
+    <div id="matchEndScreen" class="modal-backdrop hidden">
+      <div class="match-end-card glass-panel">
+        <div id="matchOutcomeBadge" class="outcome-badge">VICTORY</div>
+        <h2 id="matchOutcomeTitle" class="outcome-title">YOU WIN!</h2>
+        
+        <div class="final-score-display">
+          <div class="score-card">
+            <span class="score-card-name">YOU</span>
+            <span id="finalPlayerScore" class="score-card-pts">11</span>
+          </div>
+          <div class="score-divider">-</div>
+          <div class="score-card">
+            <span class="score-card-name">CPU</span>
+            <span id="finalCpuScore" class="score-card-pts">8</span>
+          </div>
+        </div>
+
+        <!-- Level Advancement Announcement -->
+        <div id="levelProgressionBanner" class="level-progression-banner">
+          <div id="levelBannerStatus" class="level-banner-status">LEVEL 1 &bull; MATCH 1/3 COMPLETED</div>
+          <div class="level-wins-dots large">
+            <span class="win-dot" id="endDot1"></span>
+            <span class="win-dot" id="endDot2"></span>
+            <span class="win-dot" id="endDot3"></span>
+          </div>
+        </div>
+
+        <div class="match-stats-grid">
+          <div class="stat-box">
+            <span class="stat-label">LONGEST RALLY</span>
+            <span id="statLongestRally" class="stat-val">14</span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-label">PERSONAL BEST</span>
+            <span id="statPersonalBest" class="stat-val">22</span>
+          </div>
+        </div>
+
+        <div class="action-row">
+          <button id="btnPlayAgain" class="btn-primary">NEXT MATCH</button>
+          <button id="btnReturnToMenu" class="btn-secondary">MENU</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
