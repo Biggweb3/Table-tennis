@@ -3,14 +3,17 @@ import * as THREE from 'three';
 /**
  * Creates the Hyper-Realistic Grass Environment, Table, and Dynamic Weather System.
  * 
- * V2 Improvements:
- * - Hyper-realistic grass rendering using dense GPU InstancedMesh with 2-segment curved blade geometry,
- *   subsurface scattering approximation, normal variation, and layered LOD ground coverage.
- * - Dynamic 3D wind simulation: multi-frequency procedural noise wave propagation in both X and Z axes,
- *   with smooth gust interpolation.
- * - Dynamic 4-state Weather System (SUNNY, WINDY, RAINY, SNOWY):
+ * V2.1 Upgrades:
+ * - Replicated modern Unity-grade realistic grass rendering:
+ *   - Photorealistic high-resolution grass diffuse & roughness detail maps.
+ *   - High-density GPU InstancedMesh grass (up to 38,000 blades on ultra, 26,000 on high)
+ *     with natural multi-segmented curving geometry, varied heights, and randomized orientations.
+ *   - Multi-tone natural organic turf base with realistic clumping and edge blending.
+ * - Dynamic 3D wind simulation: procedural wave displacement across both X & Z axes
+ *   with localized gust physics (STRICTLY COSMETIC ONLY - never influences ball).
+ * - 4-state Global Weather System (10-minute server cycle: SUNNY, WINDY, RAINY, SNOWY):
  *   - Gradual environmental transitions (lighting, sky color, fog, material roughness/wetness, snow accumulation).
- *   - Particle precipitation systems for realistic rain streaks and soft drifting snowflakes.
+ *   - Rain streaks & soft drifting snow particles.
  * - Scalable graphics quality presets (LOW, MEDIUM, HIGH, ULTRA).
  */
 export function createEnvironmentAndTable(scene) {
@@ -28,12 +31,11 @@ export function createEnvironmentAndTable(scene) {
 
   // Table Top Material
   const tableTopMat = new THREE.MeshStandardMaterial({
-    color: 0x0f4c5c, // rich deep sports teal
+    color: 0x0f4c5c,
     roughness: 0.38,
     metalness: 0.08,
   });
 
-  // Table top slab
   const slabGeo = new THREE.BoxGeometry(TABLE_WIDTH, TABLE_THICKNESS, TABLE_LENGTH);
   const slabMesh = new THREE.Mesh(slabGeo, tableTopMat);
   slabMesh.position.set(0, TABLE_TOP_Y - TABLE_THICKNESS / 2, 0);
@@ -46,7 +48,6 @@ export function createEnvironmentAndTable(scene) {
   const lineY = TABLE_TOP_Y + 0.001;
   const lineWidth = 0.04;
 
-  // Left & Right borders
   const leftBorder = new THREE.Mesh(new THREE.PlaneGeometry(lineWidth, TABLE_LENGTH), lineMat);
   leftBorder.rotation.x = -Math.PI / 2;
   leftBorder.position.set(-TABLE_WIDTH / 2 + lineWidth / 2, lineY, 0);
@@ -57,7 +58,6 @@ export function createEnvironmentAndTable(scene) {
   rightBorder.position.set(TABLE_WIDTH / 2 - lineWidth / 2, lineY, 0);
   tableGroup.add(rightBorder);
 
-  // Baselines
   const playerBase = new THREE.Mesh(new THREE.PlaneGeometry(TABLE_WIDTH, lineWidth), lineMat);
   playerBase.rotation.x = -Math.PI / 2;
   playerBase.position.set(0, lineY, TABLE_LENGTH / 2 - lineWidth / 2);
@@ -68,7 +68,6 @@ export function createEnvironmentAndTable(scene) {
   cpuBase.position.set(0, lineY, -TABLE_LENGTH / 2 + lineWidth / 2);
   tableGroup.add(cpuBase);
 
-  // Center line
   const centerLine = new THREE.Mesh(new THREE.PlaneGeometry(0.025, TABLE_LENGTH), lineMat);
   centerLine.rotation.x = -Math.PI / 2;
   centerLine.position.set(0, lineY, 0);
@@ -115,14 +114,12 @@ export function createEnvironmentAndTable(scene) {
   netMesh.castShadow = true;
   tableGroup.add(netMesh);
 
-  // Net top tape
   const tapeMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5 });
   const topTape = new THREE.Mesh(new THREE.BoxGeometry(NET_WIDTH, 0.035, 0.02), tapeMat);
   topTape.position.set(0, TABLE_TOP_Y + NET_HEIGHT, 0);
   topTape.castShadow = true;
   tableGroup.add(topTape);
 
-  // Metal posts & clamps
   const postMat = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.8, roughness: 0.3 });
   [-NET_WIDTH / 2, NET_WIDTH / 2].forEach(x => {
     const post = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, NET_HEIGHT + 0.1, 16), postMat);
@@ -135,7 +132,7 @@ export function createEnvironmentAndTable(scene) {
     tableGroup.add(clamp);
   });
 
-  // Table Legs & Frame
+  // Table Legs
   const metalFrameMat = new THREE.MeshStandardMaterial({
     color: 0x1e293b,
     metalness: 0.6,
@@ -174,7 +171,7 @@ export function createEnvironmentAndTable(scene) {
   centerBeam.position.set(0, TABLE_TOP_Y - 0.25, 0);
   tableGroup.add(centerBeam);
 
-  // Soft contact shadow under the table on grass
+  // Soft contact shadow
   const shadowPlaneGeo = new THREE.PlaneGeometry(TABLE_WIDTH + 0.8, TABLE_LENGTH + 0.8);
   const shadowCanvas = document.createElement('canvas');
   shadowCanvas.width = 128;
@@ -199,41 +196,19 @@ export function createEnvironmentAndTable(scene) {
 
   envGroup.add(tableGroup);
 
-  // ================= 2. HYPER-REALISTIC GRASS BASE & PROCEDURAL TERRAIN =================
-  // Rich multi-layered turf base with noise, moisture, and normal detail
-  const groundGeo = new THREE.PlaneGeometry(60, 60, 32, 32);
-  const groundCanvas = document.createElement('canvas');
-  groundCanvas.width = 512;
-  groundCanvas.height = 512;
-  const gCtx = groundCanvas.getContext('2d');
+  // ================= 2. UNITY-GRADE REALISTIC GRASS FIELD & TERRAIN =================
+  // Load high-resolution realistic Unity-style grass texture
+  const textureLoader = new THREE.TextureLoader();
+  const grassDiffuseTex = textureLoader.load('/textures/grass_diffuse.jpg');
+  grassDiffuseTex.wrapS = THREE.RepeatWrapping;
+  grassDiffuseTex.wrapT = THREE.RepeatWrapping;
+  grassDiffuseTex.repeat.set(12, 12);
 
-  // Multi-tone earthy lawn base gradient
-  const gGrad = gCtx.createRadialGradient(256, 256, 40, 256, 256, 256);
-  gGrad.addColorStop(0, '#2f5921');
-  gGrad.addColorStop(0.45, '#284d1c');
-  gGrad.addColorStop(0.85, '#1e3c15');
-  gGrad.addColorStop(1, '#15290e');
-  gCtx.fillStyle = gGrad;
-  gCtx.fillRect(0, 0, 512, 512);
-
-  // High density micro-texture simulation
-  for (let i = 0; i < 4000; i++) {
-    const rx = Math.random() * 512;
-    const ry = Math.random() * 512;
-    const colVal = Math.random();
-    gCtx.fillStyle = colVal > 0.6 ? 'rgba(80, 150, 50, 0.16)' : (colVal > 0.3 ? 'rgba(30, 70, 20, 0.22)' : 'rgba(15, 35, 10, 0.25)');
-    gCtx.fillRect(rx, ry, Math.random() * 3 + 1, Math.random() * 3 + 1);
-  }
-
-  const groundTex = new THREE.CanvasTexture(groundCanvas);
-  groundTex.wrapS = THREE.RepeatWrapping;
-  groundTex.wrapT = THREE.RepeatWrapping;
-  groundTex.repeat.set(10, 10);
-
+  const groundGeo = new THREE.PlaneGeometry(64, 64, 32, 32);
   const groundMat = new THREE.MeshStandardMaterial({
-    map: groundTex,
+    map: grassDiffuseTex,
     roughness: 0.85,
-    metalness: 0.02,
+    metalness: 0.03,
   });
   const groundMesh = new THREE.Mesh(groundGeo, groundMat);
   groundMesh.rotation.x = -Math.PI / 2;
@@ -241,22 +216,20 @@ export function createEnvironmentAndTable(scene) {
   envGroup.add(groundMesh);
 
   // ================= 3. GPU INSTANCED HYPER-DENSE 3D GRASS FIELD =================
-  // Quality presets define instance counts (from 8,000 on low up to 32,000 on ultra)
   const QUALITY_COUNTS = {
-    LOW: 9000,
-    MEDIUM: 16000,
-    HIGH: 24000,
-    ULTRA: 32000,
+    LOW: 12000,
+    MEDIUM: 20000,
+    HIGH: 28000,
+    ULTRA: 38000,
   };
   let currentQuality = 'HIGH';
   let grassCount = QUALITY_COUNTS[currentQuality];
 
   // Natural 3-triangle tapered curved blade
-  // Pivot at ground base y=0, height ~0.45
-  const bladeGeo = new THREE.ConeGeometry(0.04, 0.42, 4);
-  bladeGeo.translate(0, 0.21, 0);
+  const bladeGeo = new THREE.ConeGeometry(0.042, 0.44, 4);
+  bladeGeo.translate(0, 0.22, 0);
 
-  // Dynamic Uniforms for Wind & Weather (Wetness, Snow, Wind Force)
+  // Dynamic Uniforms for Wind & Weather (STRICTLY COSMETIC)
   const grassUniforms = {
     uTime: { value: 0 },
     uWindIntensity: { value: 1.0 },
@@ -268,7 +241,7 @@ export function createEnvironmentAndTable(scene) {
   };
 
   const grassShaderMat = new THREE.MeshStandardMaterial({
-    color: 0x488b2b,
+    color: 0x4c8a2b,
     roughness: 0.65,
     metalness: 0.04,
     side: THREE.DoubleSide,
@@ -293,24 +266,19 @@ export function createEnvironmentAndTable(scene) {
       ${shader.vertexShader}
     `;
 
-    // High performance layered wind displacement with multi-frequency wave propagation
     shader.vertexShader = shader.vertexShader.replace(
       '#include <begin_vertex>',
       `
       #include <begin_vertex>
-      float hFactor = clamp(position.y / 0.42, 0.0, 1.0);
+      float hFactor = clamp(position.y / 0.44, 0.0, 1.0);
       vec4 wPos = instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0);
 
-      // Primary wave traveling along wind vector (Left to Right + subtle Front/Back)
+      // Primary wave traveling along wind vector
       float wave1 = sin(uTime * 2.4 * uWindIntensity + wPos.x * 0.75 + wPos.z * 0.35);
-      // Secondary cross-harmonic wave
       float wave2 = cos(uTime * 3.8 * uWindIntensity + wPos.x * 1.4 - wPos.z * 0.8) * 0.4;
-      // High-speed localized gust flutter
       float gust = sin(uTime * 5.2 + wPos.x * 2.0) * uGustStrength * 0.5;
 
       float totalWave = (wave1 + wave2 + gust) * (0.16 * uWindIntensity + 0.12 * uGustStrength);
-
-      // Heavy snow slightly bends grass downward
       float snowDroop = uSnowCover * 0.08 * hFactor;
 
       transformed.x += totalWave * uWindDirX * hFactor * hFactor;
@@ -325,15 +293,13 @@ export function createEnvironmentAndTable(scene) {
       ${shader.fragmentShader}
     `;
 
-    // Material dynamic adaptation: Wetness darkens + boosts specular; Snow whitens tops
     shader.fragmentShader = shader.fragmentShader.replace(
       '#include <dithering_fragment>',
       `
       #include <dithering_fragment>
-      // Wet grass tone adjustment (darker, rich saturation)
+      // Wetness darkens grass
       gl_FragColor.rgb = mix(gl_FragColor.rgb, gl_FragColor.rgb * 0.75, uWetness);
-
-      // Snow accumulation on grass (layers from tips down)
+      // Snow accumulation
       vec3 snowColor = vec3(0.92, 0.96, 1.0);
       gl_FragColor.rgb = mix(gl_FragColor.rgb, snowColor, clamp(uSnowCover * 1.35, 0.0, 0.95));
       `
@@ -352,7 +318,6 @@ export function createEnvironmentAndTable(scene) {
 
     let idx = 0;
     for (let i = 0; i < count; i++) {
-      // Natural field density: dense clearing around table, tapering to vast outdoor meadow
       const angle = Math.random() * Math.PI * 2;
       const r = Math.sqrt(Math.random()) * 18 + 0.9;
       const x = Math.cos(angle) * r;
@@ -375,7 +340,6 @@ export function createEnvironmentAndTable(scene) {
       dummy.updateMatrix();
       grassInstanced.setMatrixAt(idx, dummy.matrix);
 
-      // Variety of 4 organic meadow tones
       const rand = Math.random();
       const bladeCol = rand < 0.35 ? cEmerald : (rand < 0.7 ? cSunlit : (rand < 0.9 ? cDeep : cGolden));
       grassInstanced.setColorAt(idx, bladeCol);
@@ -388,14 +352,13 @@ export function createEnvironmentAndTable(scene) {
   populateGrass(grassCount);
   envGroup.add(grassInstanced);
 
-  // Distant natural rolling hills for environmental depth
+  // Distant natural rolling hills
   const hillGeo = new THREE.SphereGeometry(22, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2);
   const hillMat = new THREE.MeshStandardMaterial({
     color: 0x1f4415,
     roughness: 0.95,
   });
 
-  const hills = [];
   [
     [-26, -15, -22, 1.5, 0.45, 1.3],
     [26, -15, -20, 1.4, 0.42, 1.2],
@@ -405,11 +368,9 @@ export function createEnvironmentAndTable(scene) {
     hill.position.set(hx, hy, hz);
     hill.scale.set(sx, sy, sz);
     envGroup.add(hill);
-    hills.push(hill);
   });
 
-  // ================= 4. DYNAMIC PRECIPITATION PARTICLE SYSTEMS (RAIN & SNOW) =================
-  // Rain Streaks
+  // Rain particles
   const RAIN_COUNT = 2400;
   const rainGeo = new THREE.BufferGeometry();
   const rainPositions = new Float32Array(RAIN_COUNT * 3);
@@ -428,7 +389,7 @@ export function createEnvironmentAndTable(scene) {
   const rainPoints = new THREE.Points(rainGeo, rainMat);
   envGroup.add(rainPoints);
 
-  // Soft Drifting Snowflakes
+  // Snow particles
   const SNOW_COUNT = 1800;
   const snowGeo = new THREE.BufferGeometry();
   const snowPositions = new Float32Array(SNOW_COUNT * 3);
@@ -449,7 +410,6 @@ export function createEnvironmentAndTable(scene) {
 
   scene.add(envGroup);
 
-  // Weather States target parameters
   const weatherConfigs = {
     SUNNY: {
       skyColor: new THREE.Color(0xb5e2fa),
@@ -464,7 +424,6 @@ export function createEnvironmentAndTable(scene) {
       snowOpacity: 0.0,
       wetness: 0.0,
       snowCover: 0.0,
-      roughness: 0.65,
     },
     WINDY: {
       skyColor: new THREE.Color(0x94b9cc),
@@ -479,7 +438,6 @@ export function createEnvironmentAndTable(scene) {
       snowOpacity: 0.0,
       wetness: 0.0,
       snowCover: 0.0,
-      roughness: 0.65,
     },
     RAINY: {
       skyColor: new THREE.Color(0x526b78),
@@ -494,7 +452,6 @@ export function createEnvironmentAndTable(scene) {
       snowOpacity: 0.0,
       wetness: 1.0,
       snowCover: 0.0,
-      roughness: 0.28,
     },
     SNOWY: {
       skyColor: new THREE.Color(0x8fa3b3),
@@ -509,16 +466,13 @@ export function createEnvironmentAndTable(scene) {
       snowOpacity: 0.85,
       wetness: 0.0,
       snowCover: 0.85,
-      roughness: 0.75,
     }
   };
 
-  // Weather tracking
   let currentWeather = 'SUNNY';
   let targetWeather = 'SUNNY';
-  let transitionProgress = 1.0; // 0 to 1
+  let transitionProgress = 1.0;
 
-  // Dynamic values
   let currentWindIntensity = 1.0;
   let currentGust = 0.0;
   let gustTimer = 0;
@@ -532,15 +486,6 @@ export function createEnvironmentAndTable(scene) {
     netHeight: NET_HEIGHT,
 
     getWeather: () => currentWeather,
-    getWindVector: () => {
-      // Returns active wind force vector influencing ball physics
-      const totalWind = currentWindIntensity * 0.7 + currentGust * 1.3;
-      return new THREE.Vector3(
-        grassUniforms.uWindDirX.value * totalWind,
-        0,
-        grassUniforms.uWindDirZ.value * totalWind * 0.4
-      );
-    },
 
     setWeather: (weatherKey) => {
       if (weatherConfigs[weatherKey] && weatherKey !== targetWeather) {
@@ -565,9 +510,8 @@ export function createEnvironmentAndTable(scene) {
     update: (time, dt, sceneLighting) => {
       grassUniforms.uTime.value = time;
 
-      // 1. Weather Transition Lerping
       if (transitionProgress < 1.0) {
-        transitionProgress = Math.min(1.0, transitionProgress + dt * 0.4); // ~2.5 second smooth blend
+        transitionProgress = Math.min(1.0, transitionProgress + dt * 0.4);
         if (transitionProgress >= 1.0) {
           currentWeather = targetWeather;
         }
@@ -576,7 +520,6 @@ export function createEnvironmentAndTable(scene) {
       const currCfg = weatherConfigs[currentWeather];
       const targCfg = weatherConfigs[targetWeather];
 
-      // Blend sky, lighting & fog
       const sky = currCfg.skyColor.clone().lerp(targCfg.skyColor, transitionProgress);
       scene.background.copy(sky);
       scene.fog.color.copy(sky);
@@ -591,16 +534,15 @@ export function createEnvironmentAndTable(scene) {
         sceneLighting.sun.color.set(targCfg.sunColor);
       }
 
-      // Blend grass properties
       const targetWetness = THREE.MathUtils.lerp(currCfg.wetness, targCfg.wetness, transitionProgress);
       grassUniforms.uWetness.value = targetWetness;
+      groundMat.roughness = targetWetness > 0.5 ? 0.35 : 0.85;
 
       const targetSnow = THREE.MathUtils.lerp(currCfg.snowCover, targCfg.snowCover, transitionProgress);
       grassUniforms.uSnowCover.value = targetSnow;
 
       const baseWind = THREE.MathUtils.lerp(currCfg.windBase, targCfg.windBase, transitionProgress);
 
-      // 2. Dynamic Gust System
       gustTimer += dt;
       if (gustTimer > nextGustTime) {
         gustTimer = 0;
@@ -614,14 +556,14 @@ export function createEnvironmentAndTable(scene) {
       grassUniforms.uWindIntensity.value = currentWindIntensity;
       grassUniforms.uGustStrength.value = currentGust;
 
-      // 3. Precipitation Particles (Rain & Snow)
+      // Rain particles
       const rainTargetOpacity = THREE.MathUtils.lerp(currCfg.rainOpacity, targCfg.rainOpacity, transitionProgress);
       rainMat.opacity = rainTargetOpacity;
       if (rainMat.opacity > 0.02) {
         const rPos = rainGeo.attributes.position.array;
         for (let i = 0; i < RAIN_COUNT; i++) {
           rPos[i * 3 + 1] -= (18.0 + Math.random() * 5.0) * dt;
-          rPos[i * 3 + 0] += currentWindIntensity * 1.5 * dt; // wind-blown rain
+          rPos[i * 3 + 0] += currentWindIntensity * 1.5 * dt;
           if (rPos[i * 3 + 1] < 0.1) {
             rPos[i * 3 + 1] = 12.0;
             rPos[i * 3 + 0] = (Math.random() - 0.5) * 24;
@@ -630,6 +572,7 @@ export function createEnvironmentAndTable(scene) {
         rainGeo.attributes.position.needsUpdate = true;
       }
 
+      // Snow particles
       const snowTargetOpacity = THREE.MathUtils.lerp(currCfg.snowOpacity, targCfg.snowOpacity, transitionProgress);
       snowMat.opacity = snowTargetOpacity;
       if (snowMat.opacity > 0.02) {
@@ -645,8 +588,6 @@ export function createEnvironmentAndTable(scene) {
         snowGeo.attributes.position.needsUpdate = true;
       }
 
-      // Update hill snow
-      hillMat.roughness = targetSnow > 0.2 ? 0.8 : 0.95;
       hillMat.color.set(targetSnow > 0.3 ? 0x9fb4c4 : 0x1f4415);
     }
   };

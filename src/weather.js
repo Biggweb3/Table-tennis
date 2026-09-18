@@ -1,19 +1,20 @@
 /**
  * WeatherService: Polls server-authoritative weather endpoint (/api/weather)
- * and synchronizes with local fallback timer (30-minute global cycle).
+ * and synchronizes with local fallback timer (10-minute global cycle).
  */
 export class WeatherService {
   constructor(onWeatherChange, onStatusNotification) {
     this.onWeatherChange = onWeatherChange;
     this.onStatusNotification = onStatusNotification;
     this.currentWeather = 'SUNNY';
-    this.timeRemainingMs = 30 * 60 * 1000;
+    this.timeRemainingMs = 10 * 60 * 1000;
     this.pollInterval = null;
 
+    // Atmospheric notifications only (NO gameplay/hazard warnings)
     this.hints = {
-      SUNNY: 'Clear skies. Conditions are calm.',
-      WINDY: 'Wind is picking up! The ball can drift.',
-      RAINY: 'Rain is falling. The lawn is getting slick.',
+      SUNNY: 'The skies are clearing. Conditions are calm.',
+      WINDY: 'A fresh breeze is moving through the meadow.',
+      RAINY: 'Rain is falling. The lawn is getting wet.',
       SNOWY: 'Snow is settling across the field.',
     };
 
@@ -22,8 +23,8 @@ export class WeatherService {
 
   async init() {
     await this.fetchWeather();
-    // Poll server every 20 seconds to stay tightly synced with global server clock
-    this.pollInterval = setInterval(() => this.fetchWeather(), 20000);
+    // Poll server every 15 seconds to stay tightly synced with global server clock
+    this.pollInterval = setInterval(() => this.fetchWeather(), 15000);
   }
 
   async fetchWeather() {
@@ -35,9 +36,9 @@ export class WeatherService {
         return;
       }
     } catch (e) {
-      // Fallback: calculate from client time using same 30m modulo logic
+      // Fallback: calculate from client time using same 10m modulo logic
       const now = Date.now();
-      const CYCLE = 30 * 60 * 1000;
+      const CYCLE = 10 * 60 * 1000;
       const TYPES = ['SUNNY', 'WINDY', 'RAINY', 'SNOWY'];
       const idx = Math.floor(now / CYCLE) % TYPES.length;
       this.setWeather(TYPES[idx], CYCLE - (now % CYCLE));
@@ -53,7 +54,7 @@ export class WeatherService {
         this.onWeatherChange(newWeather, old);
       }
       if (this.onStatusNotification) {
-        this.onStatusNotification(this.hints[newWeather] || 'Conditions changed.');
+        this.onStatusNotification(this.hints[newWeather] || 'The skies are changing.');
       }
     }
   }

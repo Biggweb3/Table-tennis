@@ -561,23 +561,16 @@ export class GameEngine {
 
   updateBallPhysics(dt) {
     const diffCfg = this.progression.getDifficultyConfig();
-    const windVec = this.envSystem ? this.envSystem.getWindVector() : new THREE.Vector3();
 
     const STEPS = 4;
     const subDt = dt / STEPS;
 
     for (let step = 0; step < STEPS; step++) {
-      // Apply gravity
+      // Standard table tennis physics: pure gravity + predictable air resistance
+      // WIND NEVER INFLUENCES THE BALL (Cosmetic only)
       this.ballVel.y += this.gravity * subDt;
-
-      // Air resistance
       this.ballVel.x *= (1.0 - 0.04 * subDt);
       this.ballVel.z *= (1.0 - 0.02 * subDt);
-
-      // FAIR WEATHER EFFECT: Wind pushes the ball for BOTH player and CPU
-      // Moderate force so it feels like real outdoor breeze
-      this.ballVel.x += windVec.x * 1.8 * subDt;
-      this.ballVel.z += windVec.z * 1.2 * subDt;
 
       // Move ball
       this.ballPos.x += this.ballVel.x * subDt;

@@ -34,10 +34,10 @@ function savePlayers() {
   }
 }
 
-// 30-minute global weather cycle: SUNNY -> WINDY -> RAINY -> SNOWY
+// 10-minute global weather cycle: SUNNY -> WINDY -> RAINY -> SNOWY
 // Deterministic based on server timestamp
 const WEATHER_CYCLE = ['SUNNY', 'WINDY', 'RAINY', 'SNOWY'];
-const CYCLE_DURATION_MS = 30 * 60 * 1000; // 30 minutes
+const CYCLE_DURATION_MS = 10 * 60 * 1000; // 10 minutes exactly
 
 function getGlobalWeather() {
   const now = Date.now();
