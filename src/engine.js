@@ -302,25 +302,27 @@ export class GameEngine {
     this.serving = false;
     this.ballInPlay = true;
     this.lastHitter = server;
+    this.hasBouncedOnPlayerSide = false;
+    this.hasBouncedOnCpuSide = false;
     this.ui.showServePrompt(false);
     this.sound.playServe();
 
     const diffCfg = this.progression.getDifficultyConfig();
-    const speed = 7.0 * diffCfg.ballSpeedScale;
+    const speed = 7.6 * diffCfg.ballSpeedScale;
 
     if (server === 'PLAYER') {
-      const targetX = (Math.random() - 0.5) * (this.tableHalfW * 1.2);
-      const targetZ = -this.tableHalfL * 0.65;
+      const targetX = (Math.random() - 0.5) * (this.tableHalfW * 0.9);
       const dx = targetX - this.ballPos.x;
 
-      this.ballVel.set(dx * 1.5, 3.2, -speed);
+      // Clean arc that easily clears the net and lands comfortably on CPU side
+      this.ballVel.set(dx * 1.2, 3.8, -speed);
       this.paddleSystem.player.animateHit(1.0);
     } else {
-      const targetX = (Math.random() - 0.5) * (this.tableHalfW * 1.1);
-      const targetZ = this.tableHalfL * 0.65;
+      const targetX = (Math.random() - 0.5) * (this.tableHalfW * 0.9);
       const dx = targetX - this.ballPos.x;
 
-      this.ballVel.set(dx * 1.4, 3.2, speed);
+      // Clean arc that easily clears the net and lands on Player side
+      this.ballVel.set(dx * 1.2, 3.8, speed);
       this.paddleSystem.cpu.animateHit();
     }
   }
@@ -599,23 +601,25 @@ export class GameEngine {
         }
       }
 
-      // 2. Net Collision
-      const netHeight = this.tableTopY + 0.35;
-      if (Math.abs(this.ballPos.z) < 0.1 && Math.abs(this.ballPos.x) <= this.tableHalfW + 0.2) {
-        if (this.ballPos.y >= this.tableTopY && this.ballPos.y <= netHeight) {
+      // 2. Net Collision (Net plane is at z = 0, y from tableTopY to tableTopY + 0.35)
+      const netTopY = this.tableTopY + 0.35;
+      if (Math.abs(this.ballPos.z) < 0.08 && Math.abs(this.ballPos.x) <= this.tableHalfW + 0.15) {
+        // Only hits net if ball is below top of the net
+        if (this.ballPos.y >= this.tableTopY && this.ballPos.y <= netTopY) {
           this.sound.playNetHit();
-          this.ballVel.z = -this.ballVel.z * 0.3;
-          this.ballVel.y = Math.abs(this.ballVel.y) * 0.4 + 0.5;
-          this.ballSystem.triggerImpact(this.ballPos, 8);
+          // Bounce slightly back and slow down
+          this.ballVel.z = -this.ballVel.z * 0.4;
+          this.ballVel.y = Math.max(1.2, Math.abs(this.ballVel.y) * 0.5);
+          this.ballSystem.triggerImpact(this.ballPos, 6);
         }
       }
 
       // 3. Player Paddle Collision
-      if (this.ballVel.z > 0 && this.ballPos.z >= 2.95 && this.ballPos.z <= 3.38) {
+      if (this.ballVel.z > 0 && this.ballPos.z >= 2.90 && this.ballPos.z <= 3.45) {
         const distToPlayer = Math.abs(this.ballPos.x - this.playerPaddlePos.x);
         const forgiveness = diffCfg.playerForgiveness;
 
-        if (distToPlayer <= forgiveness && this.ballPos.y >= this.tableTopY - 0.2 && this.ballPos.y <= 2.8) {
+        if (distToPlayer <= forgiveness && this.ballPos.y >= this.tableTopY - 0.25 && this.ballPos.y <= 2.9) {
           const isPower = this.powerActiveOnNextHit || this.powerReady;
           this.powerActiveOnNextHit = false;
           this.powerReady = false;
@@ -647,8 +651,9 @@ export class GameEngine {
           const baseSpeed = 7.8 * diffCfg.ballSpeedScale * powerMultiplier;
 
           this.ballVel.z = -baseSpeed;
-          this.ballVel.x = hitOffset * 4.2;
-          this.ballVel.y = isPower ? 3.0 : (3.6 + Math.random() * 0.6);
+          this.ballVel.x = hitOffset * 3.6;
+          // Reliable upward arc clearing the net comfortably
+          this.ballVel.y = isPower ? 3.4 : (3.9 + Math.random() * 0.4);
 
           this.sound.playPaddleHit(true, powerMultiplier);
           this.paddleSystem.player.animateHit(powerMultiplier);
@@ -662,11 +667,11 @@ export class GameEngine {
       }
 
       // 4. CPU Paddle Collision
-      if (this.ballVel.z < 0 && this.ballPos.z <= -2.95 && this.ballPos.z >= -3.38) {
+      if (this.ballVel.z < 0 && this.ballPos.z <= -2.90 && this.ballPos.z >= -3.45) {
         const distToCpu = Math.abs(this.ballPos.x - this.cpuPaddlePos.x);
-        const cpuReach = 0.52;
+        const cpuReach = 0.55;
 
-        if (distToCpu <= cpuReach && this.ballPos.y >= this.tableTopY - 0.2 && this.ballPos.y <= 2.8) {
+        if (distToCpu <= cpuReach && this.ballPos.y >= this.tableTopY - 0.25 && this.ballPos.y <= 2.9) {
           this.lastHitter = 'CPU';
           this.hasBouncedOnPlayerSide = false;
           this.hasBouncedOnCpuSide = false;
@@ -674,12 +679,13 @@ export class GameEngine {
 
           const cpuOffset = (this.ballPos.x - this.cpuPaddlePos.x) / cpuReach;
           const isCpuSmash = Math.random() < diffCfg.smashFrequency;
-          const speedMultiplier = isCpuSmash ? 1.25 : 1.0;
-          const cpuSpeed = (7.5 + Math.random() * 1.2) * diffCfg.ballSpeedScale * speedMultiplier;
+          const speedMultiplier = isCpuSmash ? 1.2 : 1.0;
+          const cpuSpeed = (7.6 + Math.random() * 0.8) * diffCfg.ballSpeedScale * speedMultiplier;
 
           this.ballVel.z = cpuSpeed;
-          this.ballVel.x = cpuOffset * 3.8;
-          this.ballVel.y = isCpuSmash ? 2.9 : (3.6 + Math.random() * 0.7);
+          this.ballVel.x = cpuOffset * 3.6;
+          // Reliable upward arc back to player
+          this.ballVel.y = isCpuSmash ? 3.4 : (3.9 + Math.random() * 0.4);
 
           this.sound.playPaddleHit(false, speedMultiplier);
           this.paddleSystem.cpu.animateHit();
